@@ -87,9 +87,10 @@ enum FileOps {
         return destination
     }
 
-    static func moveToTrash(_ urls: [URL], completion: @escaping ([Error]) -> Void) {
-        NSWorkspace.shared.recycle(urls) { _, error in
-            DispatchQueue.main.async { completion(error.map { [$0] } ?? []) }
+    /// `completion` receives original URL → location in the Trash (used for Undo).
+    static func moveToTrash(_ urls: [URL], completion: @escaping ([URL: URL], [Error]) -> Void) {
+        NSWorkspace.shared.recycle(urls) { trashed, error in
+            DispatchQueue.main.async { completion(trashed, error.map { [$0] } ?? []) }
         }
     }
 
@@ -145,9 +146,9 @@ enum FileOps {
     /// Runs the steps in the background. `progress(done, total, name)` and `completion` are called on main.
     static func execute(_ steps: [Step], move: Bool,
                         progress: @escaping (Int, Int, String) -> Void,
-                        completion: @escaping (_ created: [URL], _ errors: [Error]) -> Void) {
+                        completion: @escaping (_ done: [Step], _ errors: [Error]) -> Void) {
         workQueue.async {
-            var created: [URL] = []
+            var done: [Step] = []
             var errors: [Error] = []
             for (index, step) in steps.enumerated() {
                 let name = step.source.lastPathComponent
@@ -161,12 +162,12 @@ enum FileOps {
                     } else {
                         try fm.copyItem(at: step.source, to: step.destination)
                     }
-                    created.append(step.destination)
+                    done.append(step)
                 } catch {
                     errors.append(error)
                 }
             }
-            DispatchQueue.main.async { completion(created, errors) }
+            DispatchQueue.main.async { completion(done, errors) }
         }
     }
 

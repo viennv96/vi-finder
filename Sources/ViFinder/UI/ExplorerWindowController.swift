@@ -6,6 +6,9 @@ final class ExplorerWindowController: NSWindowController, NSWindowDelegate {
     private let container = TabsContainerViewController()
     private(set) var tabs: [ExplorerViewController] = []
     private(set) var selectedIndex = 0
+    /// File operations undo stack; text fields keep their own so typing undo never touches files.
+    let fileUndoManager = UndoManager()
+    private let textUndoManager = UndoManager()
 
     var explorer: ExplorerViewController { tabs[selectedIndex] }
 
@@ -171,6 +174,10 @@ final class ExplorerWindowController: NSWindowController, NSWindowDelegate {
     func windowDidEndLiveResize(_ notification: Notification) { positionTrafficLights() }
     func windowDidExitFullScreen(_ notification: Notification) { positionTrafficLights() }
 
+    func windowWillReturnUndoManager(_ window: NSWindow) -> UndoManager? {
+        window.firstResponder is NSText ? textUndoManager : fileUndoManager
+    }
+
     func windowWillClose(_ notification: Notification) {
         ExplorerWindowController.all.removeAll { $0 === self }
     }
@@ -203,6 +210,7 @@ final class ExplorerWindowController: NSWindowController, NSWindowDelegate {
         case (KeyCode.up, .option) where !editingText: explorer.goUp(nil); return true
         case (KeyCode.f5, []): explorer.refresh(nil); return true
         case (KeyCode.d, .option) where !editingText: explorer.focusAddressBar(nil); return true
+        case (KeyCode.p, .option) where !editingText: explorer.togglePreviewPane(nil); return true // Alt+P
         default: break
         }
 
@@ -222,6 +230,8 @@ final class ExplorerWindowController: NSWindowController, NSWindowDelegate {
         case "l": explorer.focusAddressBar(nil)
         case "f", "e": explorer.focusSearch(nil)
         case "r": explorer.refresh(nil)
+        case "z": explorer.undoFileOperation(nil)
+        case "y": explorer.redoFileOperation(nil)
         default: return false
         }
         return true

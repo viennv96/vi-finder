@@ -87,11 +87,11 @@ final class AddressBar: NSView, NSTextFieldDelegate {
         iconView.image = IconProvider.icon(for: url)
         segments = AddressBar.segments(for: url)
         rebuildCrumbs()
-        if isEditing { field.stringValue = url.path }
+        if isEditing { field.stringValue = url.isTagLocation ? "" : url.path }
     }
 
     func beginEditing() {
-        field.stringValue = url.path
+        field.stringValue = url.isTagLocation ? "" : url.path
         field.isHidden = false
         crumbs.isHidden = true
         window?.makeFirstResponder(field)
@@ -108,6 +108,7 @@ final class AddressBar: NSView, NSTextFieldDelegate {
     // MARK: Segments
 
     static func segments(for url: URL) -> [(title: String, url: URL)] {
+        if let tag = url.tagName { return [("Tags", url), (tag, url)] }
         var chain: [URL] = []
         var current = url.standardizedFileURL
         while true {
@@ -199,6 +200,15 @@ final class AddressBar: NSView, NSTextFieldDelegate {
     @objc private func chevronClicked(_ sender: NSButton) {
         guard let segment = segments[safe: sender.tag] else { return }
         let menu = NSMenu()
+        if segment.url.isTagLocation {
+            for tag in Tags.standard {
+                let item = menu.addItem(tag.name, #selector(menuNavigate(_:)), target: self, represented: Tags.location(for: tag.name))
+                item.image = Tags.dot(tag.color)
+                item.state = segment.url.tagName == tag.name ? .on : .off
+            }
+            sender.popUpBelow(menu)
+            return
+        }
         let keys: [URLResourceKey] = [.isDirectoryKey, .isPackageKey]
         var options: FileManager.DirectoryEnumerationOptions = []
         if !Prefs.showHidden { options.insert(.skipsHiddenFiles) }

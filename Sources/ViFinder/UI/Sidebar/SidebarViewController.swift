@@ -174,6 +174,12 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
             ]))
         }
         groups.append(SidebarNode(group: "Locations", children: locations))
+        let tagNodes = Tags.standard.map { tag -> SidebarNode in
+            let node = SidebarNode(title: tag.name, url: Tags.location(for: tag.name), canExpand: false)
+            node.image = Tags.dot(tag.color, size: 13)
+            return node
+        }
+        groups.append(SidebarNode(group: "Tags", children: tagNodes))
         roots = groups
         computerNode = computer
         outline.reloadData()
@@ -357,6 +363,7 @@ extension SidebarViewController: NSMenuDelegate {
               let url = node.url else { return }
         menu.addItem("Open", #selector(menuOpen(_:)), target: self, represented: url)
         menu.addItem("Open in new tab", #selector(menuOpenTab(_:)), target: self, symbol: "plus.square.on.square", represented: url)
+        guard !url.isTagLocation else { return }
         menu.addSeparator()
         menu.addItem("Open in Terminal", #selector(menuTerminal(_:)), target: self, symbol: "terminal", represented: url)
         menu.addItem("Show in Finder", #selector(menuReveal(_:)), target: self, symbol: "macwindow", represented: url)

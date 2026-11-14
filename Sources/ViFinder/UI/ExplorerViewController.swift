@@ -20,11 +20,14 @@ final class ExplorerViewController: NSViewController {
     let contentContainer = NSView()
     let emptyLabel = NSTextField(labelWithString: "")
 
+    let previewPane = PreviewPaneViewController()
+    private var previewItem: NSSplitViewItem!
     let detailsVC = DetailsViewController()
     let iconsVC = IconsViewController()
     private(set) var current: FileView!
     private(set) var viewMode: ViewMode = Prefs.viewMode
     private var pendingChange: BrowserModel.Change?
+    private var showingSearchProgress = false
 
     init(url: URL) {
         model = BrowserModel(folder: url)
@@ -141,9 +144,16 @@ final class ExplorerViewController: NSViewController {
         splitVC.splitView.isVertical = true
         splitVC.splitView.dividerStyle = .thin
         splitVC.splitView.autosaveName = "ViFinder.Split"
+        previewItem = NSSplitViewItem(viewController: previewPane)
+        previewItem.minimumThickness = 220
+        previewItem.maximumThickness = 900
+        previewItem.canCollapse = true
+        previewItem.holdingPriority = .init(255)
         splitVC.addSplitViewItem(sideItem)
         splitVC.addSplitViewItem(mainItem)
+        splitVC.addSplitViewItem(previewItem)
         sideItem.isCollapsed = !Prefs.showNavigationPane
+        previewItem.isCollapsed = !Prefs.showPreviewPane
         addChild(splitVC)
         splitVC.view.translatesAutoresizingMaskIntoConstraints = false
         splitVC.view.heightAnchor.constraint(greaterThanOrEqualToConstant: 200).isActive = true
@@ -231,6 +241,14 @@ final class ExplorerViewController: NSViewController {
         emptyLabel.isHidden = true
         updateWindowTitle()
         updateCommandStates()
+        updatePreview()
+    }
+
+    var isPreviewVisible: Bool { !(previewItem?.isCollapsed ?? true) }
+
+    func updatePreview() {
+        guard isPreviewVisible else { return }
+        previewPane.show(current?.selectedItems ?? [])
     }
 
     private func itemsChanged(_ change: BrowserModel.Change) {
@@ -243,7 +261,9 @@ final class ExplorerViewController: NSViewController {
             return
         }
         let keep: Set<URL> = change.isNewFolder ? [] : Set(current.selectedItems.map(\.url))
+        current.setSearchRoot(model.isSearchMode ? model.folder : nil)
         current.display(model.items, selecting: keep.union(change.select), scrollToTop: change.isNewFolder)
+        updateSearchProgress()
         updateEmptyState()
         updateStatus()
         updateCommandStates()
@@ -265,16 +285,30 @@ final class ExplorerViewController: NSViewController {
         }
         if let error = model.loadError {
             emptyLabel.stringValue = error
-        } else if !model.filterText.isEmpty {
-            emptyLabel.stringValue = "No items match your search."
+        } else if model.isSearchMode {
+            emptyLabel.stringValue = model.isSearching ? "Searching…" : "No items match your search."
         } else {
             emptyLabel.stringValue = "This folder is empty."
         }
         emptyLabel.isHidden = false
     }
 
+    private func updateSearchProgress() {
+        let searching = model.isSearchMode && model.isSearching
+        if searching {
+            statusBar.setProgress("Searching sub-folders…")
+            showingSearchProgress = true
+        } else if showingSearchProgress {
+            statusBar.setProgress(nil)
+            showingSearchProgress = false
+        }
+    }
+
     func updateStatus() {
         var text = Formatters.itemCount(model.items.count)
+        if model.isSearchMode && !model.isSearching && model.items.count >= BrowserModel.searchLimit {
+            text += " (showing the first \(BrowserModel.searchLimit))"
+        }
         let selected = current.selectedItems
         if !selected.isEmpty {
             text += "     " + (selected.count == 1 ? "1 item selected" : "\(selected.count) items selected")
@@ -302,6 +336,14 @@ final class ExplorerViewController: NSViewController {
         let wantsPane = Prefs.showNavigationPane
         if let item = splitVC.splitViewItems.first, item.isCollapsed == wantsPane {
             item.animator().isCollapsed = !wantsPane
+        }
+        let wantsPreview = Prefs.showPreviewPane
+        if previewItem.isCollapsed == wantsPreview {
+            previewItem.animator().isCollapsed = !wantsPreview
+            if wantsPreview, previewPane.view.frame.width < 260 {
+                splitVC.splitView.setPosition(splitVC.splitView.bounds.width - 340, ofDividerAt: 1)
+            }
+            updatePreview()
         }
         current.refreshAppearance()
     }

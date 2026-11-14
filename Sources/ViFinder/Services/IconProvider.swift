@@ -8,6 +8,7 @@ enum IconProvider {
     private static let thumbCache = NSCache<NSString, NSImage>()
 
     static func icon(for url: URL) -> NSImage {
+        if let tag = url.tagName { return Tags.dot(Tags.color(for: tag), size: 16) }
         let key = url.path as NSString
         if let cached = iconCache.object(forKey: key) { return cached }
         let image = NSWorkspace.shared.icon(forFile: url.path)

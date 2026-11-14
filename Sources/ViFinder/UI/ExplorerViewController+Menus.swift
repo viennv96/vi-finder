@@ -42,6 +42,7 @@ extension ExplorerViewController {
                      modifiers: [.shift], symbol: "trash.slash", represented: urls)
         menu.addSeparator()
 
+        menu.addItem(tagsMenuItem(for: items))
         menu.addItem("Compress to ZIP file", #selector(compressSelection(_:)), target: self, symbol: "doc.zipper", represented: urls)
         if let zip = single, zip.pathExtension.lowercased() == "zip" {
             menu.addItem("Extract All…", #selector(extractSelection(_:)), target: self, symbol: "arrow.up.bin", represented: [zip.url])
@@ -72,6 +73,7 @@ extension ExplorerViewController {
         new.image = NSImage.symbol("plus.circle", size: 13)
         new.submenu = newMenu()
         menu.addItem(new)
+        guard !model.isTagView else { return menu } // virtual tag view: no real folder behind it
         menu.addSeparator()
         addTerminalItems(to: menu, folder: model.folder)
         menu.addItem("Copy as path", #selector(copyAsPath(_:)), target: self, symbol: "link", represented: [model.folder])
@@ -113,6 +115,36 @@ extension ExplorerViewController {
         holder.image = NSImage.symbol("chevron.left.forwardslash.chevron.right", size: 13)
         holder.submenu = sub
         menu.addItem(holder)
+    }
+
+    /// "Tags ▸" — Finder's colour tags; ticked when every selected item has the tag.
+    func tagsMenuItem(for items: [FileItem]) -> NSMenuItem {
+        let holder = NSMenuItem(title: "Tags", action: nil, keyEquivalent: "")
+        holder.image = NSImage.symbol("tag", size: 13)
+        let sub = NSMenu()
+        let urls = items.map(\.url)
+        for tag in Tags.standard {
+            let count = items.filter { $0.tags.contains(tag.name) }.count
+            let entry = sub.addItem(tag.name, #selector(toggleTag(_:)), target: self,
+                                    represented: TagChange(tag: tag.name, urls: urls))
+            entry.image = Tags.dot(tag.color)
+            entry.state = count == 0 ? .off : (count == items.count ? .on : .mixed)
+        }
+        let custom = Set(items.flatMap(\.tags)).subtracting(Tags.standard.map(\.name)).sorted()
+        if !custom.isEmpty {
+            sub.addSeparator()
+            for tag in custom {
+                let count = items.filter { $0.tags.contains(tag) }.count
+                let entry = sub.addItem(tag, #selector(toggleTag(_:)), target: self, represented: TagChange(tag: tag, urls: urls))
+                entry.image = Tags.dot(nil)
+                entry.state = count == items.count ? .on : .mixed
+            }
+        }
+        sub.addSeparator()
+        sub.addItem("Remove all tags", #selector(removeAllTags(_:)), target: self, represented: urls)
+            .isEnabled = items.contains { !$0.tags.isEmpty }
+        holder.submenu = sub
+        return holder
     }
 
     func openWithMenuItem(for urls: [URL]) -> NSMenuItem {
@@ -165,14 +197,16 @@ extension ExplorerViewController {
 
     func viewMenu(includeToggles: Bool) -> NSMenu {
         let menu = NSMenu()
-        for (index, mode) in ViewMode.allCases.enumerated() {
+        for mode in ViewMode.menuOrder {
             let item = menu.addItem(mode.title, #selector(setViewModeFromMenu(_:)), target: self,
-                                    key: "\(index + 1)", symbol: mode.symbol, represented: mode.rawValue)
+                                    key: mode.shortcut, symbol: mode.symbol, represented: mode.rawValue)
             item.state = viewMode == mode ? .on : .off
         }
         guard includeToggles else { return menu }
         menu.addSeparator()
         menu.addItem("Navigation pane", #selector(toggleNavigationPane(_:)), target: self).state = Prefs.showNavigationPane ? .on : .off
+        menu.addItem("Preview pane", #selector(togglePreviewPane(_:)), target: self, key: "p", modifiers: [.command, .shift])
+            .state = Prefs.showPreviewPane ? .on : .off
         menu.addItem("File name extensions", #selector(toggleExtensions(_:)), target: self).state = Prefs.showExtensions ? .on : .off
         menu.addItem("Hidden items", #selector(toggleHiddenItems(_:)), target: self, key: ".", modifiers: [.command, .shift])
             .state = Prefs.showHidden ? .on : .off
@@ -245,6 +279,9 @@ extension ExplorerViewController: NSMenuItemValidation {
         case #selector(toggleNavigationPane(_:)):
             menuItem.state = Prefs.showNavigationPane ? .on : .off
             return true
+        case #selector(togglePreviewPane(_:)):
+            menuItem.state = Prefs.showPreviewPane ? .on : .off
+            return true
         default:
             return true
         }
@@ -262,6 +299,7 @@ extension ExplorerViewController: FileViewHost {
     func fileViewSelectionDidChange(_ view: FileView) {
         updateStatus()
         updateCommandStates()
+        updatePreview()
         if QLPreviewPanel.sharedPreviewPanelExists(), QLPreviewPanel.shared().isVisible {
             QLPreviewPanel.shared().reloadData()
         }

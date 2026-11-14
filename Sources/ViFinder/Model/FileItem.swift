@@ -5,6 +5,7 @@ final class FileItem {
     static let resourceKeys: [URLResourceKey] = [
         .isDirectoryKey, .isPackageKey, .isHiddenKey, .isSymbolicLinkKey, .isAliasFileKey,
         .fileSizeKey, .contentModificationDateKey, .creationDateKey, .localizedTypeDescriptionKey,
+        .tagNamesKey,
     ]
 
     let url: URL
@@ -18,6 +19,8 @@ final class FileItem {
     let modified: Date?
     let created: Date?
     let kind: String
+    /// Finder tags ("Red", "Work"…).
+    let tags: [String]
 
     init(url: URL) {
         self.url = url
@@ -39,6 +42,7 @@ final class FileItem {
         self.size = directory ? nil : Int64(values?.fileSize ?? 0)
         self.modified = values?.contentModificationDate
         self.created = values?.creationDate
+        self.tags = values?.tagNames ?? []
         if self.isFolder {
             self.kind = symlink ? "Folder shortcut" : "File folder"
         } else {

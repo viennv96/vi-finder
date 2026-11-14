@@ -33,6 +33,8 @@ protocol FileView: AnyObject {
     /// Redraw rows without changing data (cut state, extensions).
     func refreshAppearance()
     func setSortIndicator(_ key: SortKey, ascending: Bool)
+    /// Non-nil while showing search results (Details view adds a "Folder" column).
+    func setSearchRoot(_ root: URL?)
 }
 
 enum DragSupport {

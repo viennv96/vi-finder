@@ -95,8 +95,8 @@ enum MainMenu {
 
     private static func viewMenu() -> NSMenu {
         let m = NSMenu()
-        for (index, mode) in ViewMode.allCases.enumerated() {
-            m.addItem(mode.title, #selector(E.setViewModeFromMenu(_:)), target: nil, key: "\(index + 1)",
+        for mode in ViewMode.menuOrder {
+            m.addItem(mode.title, #selector(E.setViewModeFromMenu(_:)), target: nil, key: mode.shortcut,
                       represented: mode.rawValue)
         }
         m.addSeparator()
@@ -112,6 +112,7 @@ enum MainMenu {
         m.addItem(sort)
         m.addSeparator()
         m.addItem("Navigation Pane", #selector(E.toggleNavigationPane(_:)), target: nil, key: "s", modifiers: [.command, .control])
+        m.addItem("Preview Pane", #selector(E.togglePreviewPane(_:)), target: nil, key: "p", modifiers: [.command, .shift])
         m.addItem("File Name Extensions", #selector(E.toggleExtensions(_:)), target: nil)
         m.addItem("Hidden Items", #selector(E.toggleHiddenItems(_:)), target: nil, key: ".", modifiers: [.command, .shift])
         m.addSeparator()

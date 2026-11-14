@@ -23,10 +23,15 @@ final class FileTableView: NSTableView {
     }
 }
 
+/// Name cell: icon, name and the file's tag dots right after the name (like Finder).
+final class NameCellView: NSTableCellView {
+    let dots = TagDotsView()
+}
+
 /// Windows Explorer "Details" view: Name | Date modified | Type | Size.
 final class DetailsViewController: NSViewController, FileView, NSTableViewDataSource, NSTableViewDelegate, NSTextFieldDelegate {
     private enum Column: String {
-        case name, dateModified, type, size
+        case name, folder, dateModified, type, size
     }
 
     weak var host: FileViewHost?
@@ -34,6 +39,7 @@ final class DetailsViewController: NSViewController, FileView, NSTableViewDataSo
     private let tableView = FileTableView()
     private let scrollView = NSScrollView()
     private var updatingSort = false
+    private var searchRoot: URL?
 
     private var renamingItem: FileItem?
     private weak var renamingField: NSTextField?
@@ -47,6 +53,11 @@ final class DetailsViewController: NSViewController, FileView, NSTableViewDataSo
 
     override func loadView() {
         addColumn(.name, "Name", width: 320, min: 120)
+        addColumn(.folder, "Folder", width: 260, min: 80)
+        if let folder = tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(Column.folder.rawValue)) {
+            folder.sortDescriptorPrototype = nil
+            folder.isHidden = true
+        }
         addColumn(.dateModified, "Date modified", width: 150, min: 80)
         addColumn(.type, "Type", width: 160, min: 60)
         addColumn(.size, "Size", width: 90, min: 50, alignment: .right)
@@ -142,6 +153,11 @@ final class DetailsViewController: NSViewController, FileView, NSTableViewDataSo
         updatingSort = true
         tableView.sortDescriptors = [NSSortDescriptor(key: key.rawValue, ascending: ascending)]
         updatingSort = false
+    }
+
+    func setSearchRoot(_ root: URL?) {
+        searchRoot = root
+        tableView.tableColumn(withIdentifier: NSUserInterfaceItemIdentifier(Column.folder.rawValue))?.isHidden = root == nil
     }
 
     func beginRename(_ url: URL) {
@@ -259,8 +275,13 @@ final class DetailsViewController: NSViewController, FileView, NSTableViewDataSo
         switch column {
         case .name:
             cell.textField?.stringValue = item.displayName(showExtension: host?.showExtensions ?? true)
+            (cell as? NameCellView)?.dots.colors = item.tags.map { Tags.color(for: $0) }
             cell.imageView?.image = IconProvider.icon(for: item.url)
             cell.toolTip = item.url.path
+        case .folder:
+            let parent = item.url.deletingLastPathComponent().path
+            cell.textField?.stringValue = (parent as NSString).abbreviatingWithTildeInPath
+            cell.toolTip = parent
         case .dateModified:
             cell.textField?.stringValue = item.modified.map { Formatters.date.string(from: $0) } ?? ""
         case .type:
@@ -276,7 +297,7 @@ final class DetailsViewController: NSViewController, FileView, NSTableViewDataSo
         if let reused = tableView.makeView(withIdentifier: id, owner: nil) as? NSTableCellView {
             return reused
         }
-        let cell = NSTableCellView()
+        let cell: NSTableCellView = column == .name ? NameCellView() : NSTableCellView()
         cell.identifier = id
         let text = NSTextField(labelWithString: "")
         text.translatesAutoresizingMaskIntoConstraints = false
@@ -287,7 +308,11 @@ final class DetailsViewController: NSViewController, FileView, NSTableViewDataSo
         cell.addSubview(text)
         cell.textField = text
 
-        if column == .name {
+        if column == .name, let nameCell = cell as? NameCellView {
+            let dots = nameCell.dots
+            dots.translatesAutoresizingMaskIntoConstraints = false
+            cell.addSubview(dots)
+            text.setContentHuggingPriority(.defaultHigh, for: .horizontal)
             let image = NSImageView()
             image.translatesAutoresizingMaskIntoConstraints = false
             image.imageScaling = .scaleProportionallyUpOrDown
@@ -299,8 +324,11 @@ final class DetailsViewController: NSViewController, FileView, NSTableViewDataSo
                 image.widthAnchor.constraint(equalToConstant: 18),
                 image.heightAnchor.constraint(equalToConstant: 18),
                 text.leadingAnchor.constraint(equalTo: image.trailingAnchor, constant: 6),
-                text.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -2),
                 text.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+                dots.leadingAnchor.constraint(equalTo: text.trailingAnchor, constant: 4),
+                dots.trailingAnchor.constraint(lessThanOrEqualTo: cell.trailingAnchor, constant: -2),
+                dots.centerYAnchor.constraint(equalTo: cell.centerYAnchor),
+                dots.heightAnchor.constraint(equalToConstant: 12),
             ])
         } else {
             text.textColor = .secondaryLabelColor

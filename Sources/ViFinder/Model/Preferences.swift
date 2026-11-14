@@ -1,13 +1,19 @@
 import Foundation
 
 enum ViewMode: String, CaseIterable {
-    case largeIcons, mediumIcons, details
+    case largeIcons, mediumIcons, list, details, tiles, content
+
+    /// Order used in menus (same as Windows Explorer's View menu).
+    static let menuOrder: [ViewMode] = [.largeIcons, .mediumIcons, .list, .details, .tiles, .content]
 
     var title: String {
         switch self {
         case .largeIcons: return "Large icons"
         case .mediumIcons: return "Medium icons"
+        case .list: return "List"
         case .details: return "Details"
+        case .tiles: return "Tiles"
+        case .content: return "Content"
         }
     }
 
@@ -15,7 +21,22 @@ enum ViewMode: String, CaseIterable {
         switch self {
         case .largeIcons: return "square.grid.2x2"
         case .mediumIcons: return "square.grid.3x3"
+        case .list: return "list.dash"
         case .details: return "list.bullet"
+        case .tiles: return "rectangle.grid.2x2"
+        case .content: return "list.bullet.rectangle"
+        }
+    }
+
+    /// ⌘1…⌘6 (⌘1/⌘2/⌘3 kept from earlier versions).
+    var shortcut: String {
+        switch self {
+        case .largeIcons: return "1"
+        case .mediumIcons: return "2"
+        case .details: return "3"
+        case .list: return "4"
+        case .tiles: return "5"
+        case .content: return "6"
         }
     }
 }
@@ -46,6 +67,7 @@ enum Prefs {
             "sortAscending": true,
             "terminalBundleID": "com.apple.Terminal",
             "showNavigationPane": true,
+            "showPreviewPane": false,
         ])
     }
 
@@ -66,6 +88,11 @@ enum Prefs {
     static var showNavigationPane: Bool {
         get { d.bool(forKey: "showNavigationPane") }
         set { d.set(newValue, forKey: "showNavigationPane"); changed() }
+    }
+
+    static var showPreviewPane: Bool {
+        get { d.bool(forKey: "showPreviewPane") }
+        set { d.set(newValue, forKey: "showPreviewPane"); changed() }
     }
 
     /// Default view mode for new windows/tabs (each tab keeps its own afterwards).

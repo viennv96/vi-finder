@@ -1,5 +1,15 @@
 import AppKit
 
+/// A tag to toggle on a set of files (menu item payload).
+final class TagChange: NSObject {
+    let tag: String
+    let urls: [URL]
+    init(tag: String, urls: [URL]) {
+        self.tag = tag
+        self.urls = urls
+    }
+}
+
 /// Wraps "open this folder with that app" for menu items.
 final class AppTarget: NSObject {
     let app: ExternalApp?
@@ -13,6 +23,19 @@ final class AppTarget: NSObject {
 }
 
 extension ExplorerViewController {
+    /// Shared by all tabs of the window (Explorer-style global undo for file operations).
+    var fileUndoManager: UndoManager? { windowController?.fileUndoManager }
+
+    @objc func undoFileOperation(_ sender: Any?) {
+        fileUndoManager?.undo()
+        model.reload()
+    }
+
+    @objc func redoFileOperation(_ sender: Any?) {
+        fileUndoManager?.redo()
+        model.reload()
+    }
+
     // MARK: Navigation
 
     @objc func goBack(_ sender: Any?) { model.goBack(); current.focus() }
@@ -121,7 +144,7 @@ extension ExplorerViewController {
         }
         let selection = selectedItems
         if selection.count == 1, selection[0].isFolder { return selection[0].url }
-        return model.folder
+        return model.isTagView ? Places.home : model.folder
     }
 
     @objc func openInTerminal(_ sender: Any?) {
@@ -187,9 +210,16 @@ extension ExplorerViewController {
             let verb = move ? "Moving" : "Copying"
             FileOps.execute(steps, move: move, progress: { [weak self] done, total, name in
                 self?.statusBar.setProgress("\(verb) \(done + 1) of \(total): \(name)")
-            }, completion: { [weak self] created, errors in
+            }, completion: { [weak self] done, errors in
                 guard let self else { return }
                 self.statusBar.setProgress(nil)
+                let created = done.map(\.destination)
+                if move {
+                    FileUndo.registerMoves(done.map { ($0.source, $0.destination) },
+                                           name: "Move", in: self.fileUndoManager)
+                } else {
+                    FileUndo.registerCreated(created, name: "Copy", in: self.fileUndoManager)
+                }
                 if clearClipboardAfter && errors.isEmpty { FileClipboard.shared.clearAfterCutPaste() }
                 if folder.isSameFile(as: self.model.folder) {
                     self.model.reload(select: Set(created))
@@ -233,6 +263,7 @@ extension ExplorerViewController {
     @objc func newFolder(_ sender: Any?) {
         do {
             let url = try FileOps.createFolder(in: model.folder)
+            FileUndo.registerCreated([url], name: "New Folder", in: fileUndoManager)
             model.reload(select: [url], rename: url)
         } catch { present([error]) }
     }
@@ -240,6 +271,7 @@ extension ExplorerViewController {
     @objc func newTextDocument(_ sender: Any?) {
         do {
             let url = try FileOps.createTextFile(in: model.folder)
+            FileUndo.registerCreated([url], name: "New Text Document", in: fileUndoManager)
             model.reload(select: [url], rename: url)
         } catch { present([error]) }
     }
@@ -268,6 +300,7 @@ extension ExplorerViewController {
         }
         do {
             let newURL = try FileOps.rename(item.url, to: name)
+            FileUndo.registerMoves([(item.url, newURL)], name: "Rename", in: fileUndoManager)
             IconProvider.invalidate(item.url)
             model.reload(select: [newURL])
         } catch {
@@ -279,7 +312,8 @@ extension ExplorerViewController {
     @objc func moveToTrash(_ sender: Any?) {
         let urls = targetURLs(sender)
         guard !urls.isEmpty else { return NSSound.beep() }
-        FileOps.moveToTrash(urls) { [weak self] errors in
+        FileOps.moveToTrash(urls) { [weak self] trashed, errors in
+            FileUndo.registerTrashed(trashed, name: "Delete", in: self?.fileUndoManager)
             self?.model.reload()
             self?.present(errors)
         }
@@ -322,7 +356,10 @@ extension ExplorerViewController {
         FileOps.compress(urls, in: model.folder) { [weak self] zip, error in
             self?.statusBar.setProgress(nil)
             if let error { self?.present([error]) }
-            if let zip { self?.model.reload(select: [zip], rename: zip) }
+            if let zip {
+                FileUndo.registerCreated([zip], name: "Compress", in: self?.fileUndoManager)
+                self?.model.reload(select: [zip], rename: zip)
+            }
         }
     }
 
@@ -333,13 +370,44 @@ extension ExplorerViewController {
         FileOps.extract(zip) { [weak self] folder, error in
             self?.statusBar.setProgress(nil)
             if let error { self?.present([error]) }
-            if let folder { self?.model.reload(select: [folder]) }
+            if let folder {
+                FileUndo.registerCreated([folder], name: "Extract", in: self?.fileUndoManager)
+                self?.model.reload(select: [folder])
+            }
         }
     }
 
     @objc func showProperties(_ sender: Any?) {
-        let urls = targetURLs(sender)
+        let urls = targetURLs(sender).filter { !$0.isTagLocation }
+        if urls.isEmpty && model.isTagView { return NSSound.beep() }
         PropertiesWindowController.show(for: urls.isEmpty ? [model.folder] : urls)
+    }
+
+    // MARK: Tags
+
+    /// Adds the tag to every item, or removes it if all of them already have it (Finder behaviour).
+    @objc func toggleTag(_ sender: NSMenuItem) {
+        guard let change = sender.representedObject as? TagChange else { return }
+        let current = change.urls.map { (try? $0.resourceValues(forKeys: [.tagNamesKey]))?.tagNames ?? [] }
+        let removing = current.allSatisfy { $0.contains(change.tag) }
+        var errors: [Error] = []
+        for (url, tags) in zip(change.urls, current) {
+            let updated = removing ? tags.filter { $0 != change.tag }
+                                   : (tags.contains(change.tag) ? tags : tags + [change.tag])
+            do { try Tags.setTags(updated, for: url) } catch { errors.append(error) }
+        }
+        present(errors)
+        model.reload()
+    }
+
+    @objc func removeAllTags(_ sender: NSMenuItem) {
+        let urls = (sender.representedObject as? [URL]) ?? selectedURLs
+        var errors: [Error] = []
+        for url in urls {
+            do { try Tags.setTags([], for: url) } catch { errors.append(error) }
+        }
+        present(errors)
+        model.reload()
     }
 
     @objc override func selectAll(_ sender: Any?) {
@@ -381,4 +449,5 @@ extension ExplorerViewController {
     @objc func toggleHiddenItems(_ sender: Any?) { Prefs.showHidden.toggle() }
     @objc func toggleExtensions(_ sender: Any?) { Prefs.showExtensions.toggle() }
     @objc func toggleNavigationPane(_ sender: Any?) { Prefs.showNavigationPane.toggle() }
+    @objc func togglePreviewPane(_ sender: Any?) { Prefs.showPreviewPane.toggle() }
 }

@@ -40,6 +40,7 @@ extension URL {
 
     /// Display name as the system shows it (localized folder names, volume names...).
     var displayName: String {
+        if let tag = tagName { return tag }
         if isRoot {
             return (try? resourceValues(forKeys: [.volumeLocalizedNameKey]))?.volumeLocalizedName ?? "Macintosh HD"
         }
@@ -153,4 +154,5 @@ enum KeyCode {
     static let up: UInt16 = 126
     static let d: UInt16 = 2
     static let l: UInt16 = 37
+    static let p: UInt16 = 35
 }

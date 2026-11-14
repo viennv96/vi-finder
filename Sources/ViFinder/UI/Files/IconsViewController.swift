@@ -125,14 +125,138 @@ final class IconItem: NSCollectionViewItem {
     }
 }
 
-/// Windows "Large icons" / "Medium icons" views.
+/// One row/tile for the List, Tiles and Content views.
+final class RowItem: NSCollectionViewItem {
+    static let id = NSUserInterfaceItemIdentifier("RowItem")
+    enum Style { case list, tiles, content }
+
+    private let icon = NSImageView()
+    private let titleLabel = NSTextField(labelWithString: "")
+    private let line2 = NSTextField(labelWithString: "")
+    private let line3 = NSTextField(labelWithString: "")
+    private let right1 = NSTextField(labelWithString: "")
+    private let right2 = NSTextField(labelWithString: "")
+    private let divider = NSBox()
+    private var style: Style = .list
+    var representedURL: URL?
+
+    override func loadView() {
+        let root = FlippedView()
+        root.wantsLayer = true
+        root.layer?.cornerRadius = 4
+        root.layer?.borderWidth = 1
+        icon.imageScaling = .scaleProportionallyUpOrDown
+        for label in [titleLabel, line2, line3, right1, right2] {
+            label.lineBreakMode = .byTruncatingTail
+            label.cell?.usesSingleLineMode = true
+            root.addSubview(label)
+        }
+        for label in [line2, line3, right1, right2] {
+            label.font = .systemFont(ofSize: 12)
+            label.textColor = .secondaryLabelColor
+        }
+        divider.boxType = .separator
+        root.addSubview(icon)
+        root.addSubview(divider)
+        view = root
+        imageView = icon
+        textField = titleLabel
+    }
+
+    func configure(_ item: FileItem, name: String, style: Style, dimmed: Bool) {
+        self.style = style
+        representedURL = item.url
+        titleLabel.stringValue = name
+        titleLabel.font = .systemFont(ofSize: 13, weight: style == .list ? .regular : .medium)
+        let size = item.isFolder ? "" : Formatters.size(item.size)
+        let date = item.modified.map { Formatters.date.string(from: $0) } ?? ""
+        switch style {
+        case .list:
+            line2.stringValue = ""; line3.stringValue = ""; right1.stringValue = ""; right2.stringValue = ""
+        case .tiles:
+            line2.stringValue = item.kind
+            line3.stringValue = size
+            right1.stringValue = ""; right2.stringValue = ""
+        case .content:
+            line2.stringValue = item.kind
+            line3.stringValue = ""
+            right1.stringValue = date.isEmpty ? "" : "Date modified: \(date)"
+            right2.stringValue = size.isEmpty ? "" : "Size: \(size)"
+        }
+        divider.isHidden = style != .content
+        view.toolTip = item.url.path
+        view.alphaValue = (dimmed || item.isHidden) ? 0.5 : 1
+        let points = iconPoints(for: style)
+        icon.image = (IconProvider.wantsThumbnail(item) && style != .list
+                      ? IconProvider.cachedThumbnail(for: item.url, size: points) : nil) ?? IconProvider.icon(for: item.url)
+        if style != .list {
+            IconProvider.thumbnail(for: item, size: points) { [weak self] image in
+                guard let self, self.representedURL == item.url else { return }
+                self.icon.image = image
+            }
+        }
+        view.needsLayout = true
+        updateSelection()
+    }
+
+    private func iconPoints(for style: Style) -> CGFloat {
+        switch style {
+        case .list: return 16
+        case .tiles: return 48
+        case .content: return 40
+        }
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        let w = view.bounds.width, h = view.bounds.height
+        let p = iconPoints(for: style)
+        icon.frame = NSRect(x: style == .list ? 4 : 8, y: (h - p) / 2, width: p, height: p)
+        let x = icon.frame.maxX + (style == .list ? 6 : 10)
+        let lineH: CGFloat = 17
+        switch style {
+        case .list:
+            titleLabel.frame = NSRect(x: x, y: (h - lineH) / 2, width: w - x - 4, height: lineH)
+            [line2, line3, right1, right2].forEach { $0.frame = .zero }
+        case .tiles:
+            let top = (h - lineH * 3) / 2
+            titleLabel.frame = NSRect(x: x, y: top, width: w - x - 6, height: lineH)
+            line2.frame = NSRect(x: x, y: top + lineH, width: w - x - 6, height: lineH)
+            line3.frame = NSRect(x: x, y: top + lineH * 2, width: w - x - 6, height: lineH)
+            [right1, right2].forEach { $0.frame = .zero }
+        case .content:
+            let split = max(w * 0.55, x + 160)
+            let top = (h - lineH * 2) / 2
+            titleLabel.frame = NSRect(x: x, y: top, width: split - x - 12, height: lineH)
+            line2.frame = NSRect(x: x, y: top + lineH, width: split - x - 12, height: lineH)
+            right1.frame = NSRect(x: split, y: top, width: w - split - 10, height: lineH)
+            right2.frame = NSRect(x: split, y: top + lineH, width: w - split - 10, height: lineH)
+            line3.frame = .zero
+            divider.frame = NSRect(x: 8, y: h - 1, width: w - 16, height: 1)
+        }
+    }
+
+    override var isSelected: Bool { didSet { updateSelection() } }
+    override var highlightState: NSCollectionViewItem.HighlightState { didSet { updateSelection() } }
+
+    private func updateSelection() {
+        let selected = isSelected || highlightState == .forSelection
+        let accent = NSColor.controlAccentColor
+        view.layer?.backgroundColor = selected ? accent.withAlphaComponent(0.22).cgColor : NSColor.clear.cgColor
+        view.layer?.borderColor = selected ? accent.withAlphaComponent(0.6).cgColor : NSColor.clear.cgColor
+    }
+}
+
+/// Windows "Large icons", "Medium icons", "List", "Tiles" and "Content" views.
 final class IconsViewController: NSViewController, FileView, NSCollectionViewDataSource,
-                                 NSCollectionViewDelegate, NSTextFieldDelegate {
+                                 NSCollectionViewDelegateFlowLayout, NSTextFieldDelegate {
     weak var host: FileViewHost?
     private(set) var items: [FileItem] = []
     private let collectionView = FileCollectionView()
     private let layout = NSCollectionViewFlowLayout()
     private var iconPoints: CGFloat = 64
+    private let scroll = NSScrollView()
+    private var lastContentWidth: CGFloat = 0
 
     private var renamingItem: FileItem?
     private weak var renamingField: NSTextField?
@@ -159,6 +283,7 @@ final class IconsViewController: NSViewController, FileView, NSCollectionViewDat
         collectionView.dataSource = self
         collectionView.delegate = self
         collectionView.register(IconItem.self, forItemWithIdentifier: IconItem.id)
+        collectionView.register(RowItem.self, forItemWithIdentifier: RowItem.id)
         collectionView.registerForDraggedTypes([.fileURL])
         collectionView.setDraggingSourceOperationMask([.copy, .move, .link], forLocal: false)
         collectionView.setDraggingSourceOperationMask([.copy, .move], forLocal: true)
@@ -175,7 +300,6 @@ final class IconsViewController: NSViewController, FileView, NSCollectionViewDat
             host.fileView(self, open: self.selectedItems)
         }
 
-        let scroll = NSScrollView()
         scroll.documentView = collectionView
         scroll.hasVerticalScroller = true
         scroll.autohidesScrollers = true
@@ -185,16 +309,45 @@ final class IconsViewController: NSViewController, FileView, NSCollectionViewDat
     }
 
     private func applyMode() {
+        layout.scrollDirection = mode == .list ? .horizontal : .vertical
+        layout.minimumInteritemSpacing = 6
+        layout.minimumLineSpacing = 6
         switch mode {
         case .mediumIcons:
             iconPoints = 48
             layout.itemSize = NSSize(width: 92, height: 92)
+        case .list:
+            iconPoints = 16
+            layout.itemSize = NSSize(width: 240, height: 24)
+            layout.minimumInteritemSpacing = 0
+            layout.minimumLineSpacing = 12
+        case .tiles:
+            layout.itemSize = NSSize(width: 290, height: 66)
+        case .content:
+            layout.itemSize = NSSize(width: max(contentWidth, 300), height: 58)
+            layout.minimumLineSpacing = 0
         default:
             iconPoints = 80
             layout.itemSize = NSSize(width: 118, height: 124)
         }
+        scroll.hasHorizontalScroller = mode == .list
+        scroll.hasVerticalScroller = mode != .list
         layout.invalidateLayout()
         collectionView.reloadData()
+    }
+
+    /// Content view rows span the full width.
+    private var contentWidth: CGFloat {
+        scroll.contentSize.width - layout.sectionInset.left - layout.sectionInset.right
+    }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        if mode == .content, abs(contentWidth - lastContentWidth) > 0.5 {
+            lastContentWidth = contentWidth
+            layout.itemSize = NSSize(width: max(contentWidth, 300), height: 58)
+            layout.invalidateLayout()
+        }
     }
 
     // MARK: FileView
@@ -243,6 +396,7 @@ final class IconsViewController: NSViewController, FileView, NSCollectionViewDat
     }
 
     func setSortIndicator(_ key: SortKey, ascending: Bool) {}
+    func setSearchRoot(_ root: URL?) {}
 
     func beginRename(_ url: URL) {
         guard let index = items.firstIndex(where: { $0.url.isSameFile(as: url) }) else { return }
@@ -302,10 +456,15 @@ final class IconsViewController: NSViewController, FileView, NSCollectionViewDat
     }
 
     func collectionView(_ collectionView: NSCollectionView, itemForRepresentedObjectAt indexPath: IndexPath) -> NSCollectionViewItem {
-        let tile = collectionView.makeItem(withIdentifier: IconItem.id, for: indexPath)
-        if let tile = tile as? IconItem, let item = items[safe: indexPath.item] {
-            tile.configure(item, name: item.displayName(showExtension: host?.showExtensions ?? true),
-                           iconPoints: iconPoints, dimmed: host?.isCut(item.url) ?? false)
+        let rowStyle: RowItem.Style? = mode == .list ? .list : mode == .tiles ? .tiles : mode == .content ? .content : nil
+        let tile = collectionView.makeItem(withIdentifier: rowStyle == nil ? IconItem.id : RowItem.id, for: indexPath)
+        guard let item = items[safe: indexPath.item] else { return tile }
+        let name = item.displayName(showExtension: host?.showExtensions ?? true)
+        let dimmed = host?.isCut(item.url) ?? false
+        if let tile = tile as? IconItem {
+            tile.configure(item, name: name, iconPoints: iconPoints, dimmed: dimmed)
+        } else if let tile = tile as? RowItem, let rowStyle {
+            tile.configure(item, name: name, style: rowStyle, dimmed: dimmed)
         }
         return tile
     }

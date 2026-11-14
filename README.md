@@ -20,6 +20,14 @@ Viết bằng Swift + AppKit (native, không Electron), build bằng Swift Packa
     <td align="center">Large icons (thumbnail ảnh, video, PDF)</td>
     <td align="center">Medium icons, giao diện sáng</td>
   </tr>
+  <tr>
+    <td><img src="docs/images/preview.png" alt="Preview pane và tags"></td>
+    <td><img src="docs/images/tiles.png" alt="Tiles view"></td>
+  </tr>
+  <tr>
+    <td align="center">Preview pane (⇧⌘P) + Tags</td>
+    <td align="center">Tiles view</td>
+  </tr>
 </table>
 
 ## Tải về
@@ -77,12 +85,15 @@ macOS không cho thay hẳn Finder: Desktop, Dock, Thùng rác và các thư m�
 |---|---|
 | Tab trên thanh tiêu đề | Tab tự vẽ trên title bar: `+`, ×, middle-click để đóng, menu chuột phải (Duplicate, Move to new window, Close others…) |
 | Thanh địa chỉ breadcrumb | Bấm từng đoạn để nhảy tới, bấm `›` để chọn thư mục con, `«` khi đường dẫn quá dài, bấm vào khoảng trống để gõ đường dẫn (hỗ trợ `~`, đường dẫn tương đối, `file://`, URL web). Gõ `cmd` / `terminal` để mở Terminal tại thư mục hiện tại |
-| Ô Search | Lọc ngay khi gõ trong thư mục hiện tại |
+| Ô Search | Tìm trong thư mục hiện tại **và mọi thư mục con** (chạy nền, kết quả hiện dần), không phân biệt hoa thường và dấu tiếng Việt ("tai lieu" ra "Tài liệu"). Kết quả có thêm cột **Folder** |
 | Command bar | New ▾, Cut, Copy, Paste, Rename, Share, Delete, Sort ▾, View ▾, Terminal, ⋯ |
 | Navigation pane | Quick access, iCloud Drive, tên máy Mac (giống *This PC*) chứa các ổ đĩa dạng cây, OneDrive / Google Drive / Dropbox (`~/Library/CloudStorage`), Network (Connect to Server – SMB/AFP/NFS) |
-| View | Details (Name / Date modified / Type / Size, bấm header để sort, kéo đổi cột), Large icons, Medium icons (có thumbnail) |
+| View | Large icons, Medium icons (có thumbnail), List, Details (Name / Date modified / Type / Size, bấm header để sort, kéo đổi cột), Tiles, Content |
+| Preview pane | Xem trước file đang chọn ở cột bên phải (ảnh, PDF, video, code, Office… qua Quick Look) |
+| Undo / Redo | Hoàn tác đổi tên, di chuyển, copy, tạo mới, nén/giải nén, xóa vào Thùng rác (lấy lại từ Thùng rác). Xóa vĩnh viễn thì không undo được |
+| Tags | Dùng chung tag với Finder: chấm màu cạnh tên file, chuột phải → Tags ▸ để gắn/bỏ, mục **Tags** ở Navigation pane liệt kê mọi file có tag đó (qua Spotlight) |
 | Status bar | Số item, số item đang chọn + dung lượng, tiến trình copy/move, nút chuyển view |
-| Chuột phải trên file/thư mục | Open, Open in new tab/window, Open with ▸, **Open in Terminal**, Open in ▸ (iTerm, Warp, Ghostty, VS Code, Cursor…), Cut, Copy, Paste into folder, Copy as path, Rename, Delete, Delete permanently, Compress to ZIP, Extract All, Share, Show in Finder, Properties |
+| Chuột phải trên file/thư mục | Open, Open in new tab/window, Open with ▸, **Open in Terminal**, Open in ▸ (iTerm, Warp, Ghostty, VS Code, Cursor…), Cut, Copy, Paste into folder, Copy as path, Rename, Delete, Delete permanently, Tags ▸, Compress to ZIP, Extract All, Share, Show in Finder, Properties |
 | Chuột phải vào khoảng trống | View ▸, Sort by ▸, Refresh, Paste, New ▸ (Folder, Text Document), Open in Terminal, Properties |
 | Copy / Cut / Paste | Dùng clipboard hệ thống → copy từ ViFinder dán sang Finder và ngược lại. File đã Cut hiện mờ. Trùng tên: Replace / Skip / Keep both. Dán vào cùng thư mục → `name - Copy.ext` |
 | Kéo thả | Cùng ổ = move, khác ổ = copy, giữ ⌥ = copy, giữ ⌘ = move. Thả được lên thư mục trong danh sách hoặc trong Navigation pane |
@@ -112,6 +123,9 @@ Trên Mac, phím ⌘ thay cho Ctrl. Các tổ hợp Ctrl kiểu Windows (Ctrl+C/
 | Tab mới / Đóng tab / Đổi tab | ⌘T / ⌘W / Ctrl+Tab, ⇧⌘] ⇧⌘[ |
 | Cửa sổ mới | ⌘N |
 | Large icons / Medium icons / Details | ⌘1 / ⌘2 / ⌘3 |
+| List / Tiles / Content | ⌘4 / ⌘5 / ⌘6 |
+| Preview pane | ⇧⌘P, ⌥P (Alt+P) |
+| Undo / Redo | ⌘Z / ⇧⌘Z, Ctrl+Z / Ctrl+Y |
 | Hiện file ẩn | ⇧⌘. |
 | Quick Look | Space |
 | Connect to Server | ⌘K |
@@ -124,13 +138,13 @@ Trên Mac, phím ⌘ thay cho Ctrl. Các tổ hợp Ctrl kiểu Windows (Ctrl+C/
 Sources/ViFinder/
   App/        main.swift, AppDelegate, MainMenu (menu bar)
   Model/      FileItem, BrowserModel (điều hướng + listing của mỗi tab), Preferences
-  Services/   FileOperations (copy/move/xóa/zip), FileClipboard, TerminalLauncher, DefaultFileBrowser,
+  Services/   FileOperations (copy/move/xóa/zip), FileUndo, FileClipboard, TerminalLauncher, DefaultFileBrowser,
               DirectoryMonitor (kqueue), IconProvider (icon + thumbnail)
   UI/         ExplorerWindowController (cửa sổ + tab), TabStrip, ExplorerViewController (+Actions, +Menus),
-              AddressBar, CommandBar (+StatusBar), PropertiesWindowController
+              AddressBar, CommandBar (+StatusBar), PreviewPaneViewController, PropertiesWindowController
   UI/Files/   DetailsViewController (NSTableView), IconsViewController (NSCollectionView)
   UI/Sidebar/ SidebarViewController (Navigation pane)
-  Util/       Places (thư mục chuẩn; VIFINDER_DEMO_HOME để chụp ảnh demo), Extensions
+  Util/       Places (thư mục chuẩn; VIFINDER_DEMO_HOME để chụp ảnh demo), Tags, Extensions
 scripts/      build-app.sh (native / universal), package.sh (dmg + zip), make-icon.swift
 Support/      Info.plist, AppIcon.icns
 .github/      workflows/build.yml (CI build universal + Release)
@@ -139,4 +153,7 @@ Support/      Info.plist, AppIcon.icns
 ## Giới hạn hiện tại
 
 - Không thể thay hẳn Finder (xem mục "Đặt làm trình quản lý file mặc định").
-- Chưa có: Undo (⌘Z) cho thao tác file, tìm kiếm đệ quy trong thư mục con, view List/Tiles/Content, preview pane, mục "Shared" của iCloud, Tags.
+- Mục "Shared" của iCloud: Apple không có API công khai (cần entitlement iCloud của tài khoản Apple Developer).
+- Tìm kiếm chỉ theo tên file (chưa tìm theo nội dung) và dừng ở 10.000 kết quả.
+- Chấm màu tag hiện trong Details view; các view khác chưa hiện.
+- Mục Tags ở Navigation pane dựa vào Spotlight: thư mục bị loại khỏi Spotlight sẽ không xuất hiện.
