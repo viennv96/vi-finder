@@ -9,6 +9,19 @@
 Trình quản lý file cho macOS 14+ với giao diện và thao tác giống **Windows 11 File Explorer**.
 Viết bằng Swift + AppKit (native, không Electron), build bằng Swift Package Manager, **không cần Xcode**, chỉ cần Command Line Tools.
 
+![ViFinder – Details view](docs/images/details.png)
+
+<table>
+  <tr>
+    <td><img src="docs/images/icons.png" alt="Large icons với thumbnail"></td>
+    <td><img src="docs/images/light.png" alt="Medium icons, giao diện sáng"></td>
+  </tr>
+  <tr>
+    <td align="center">Large icons (thumbnail ảnh, video, PDF)</td>
+    <td align="center">Medium icons, giao diện sáng</td>
+  </tr>
+</table>
+
 ## Tải về
 
 - **Bản phát hành:** trang [Releases](https://github.com/viennv96/vi-finder/releases) → tải `ViFinder.dmg` (hoặc `ViFinder.zip`).
@@ -117,6 +130,7 @@ Sources/ViFinder/
               AddressBar, CommandBar (+StatusBar), PropertiesWindowController
   UI/Files/   DetailsViewController (NSTableView), IconsViewController (NSCollectionView)
   UI/Sidebar/ SidebarViewController (Navigation pane)
+  Util/       Places (thư mục chuẩn; VIFINDER_DEMO_HOME để chụp ảnh demo), Extensions
 scripts/      build-app.sh (native / universal), package.sh (dmg + zip), make-icon.swift
 Support/      Info.plist, AppIcon.icns
 .github/      workflows/build.yml (CI build universal + Release)
