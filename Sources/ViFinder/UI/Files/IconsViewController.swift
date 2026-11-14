@@ -79,7 +79,7 @@ final class IconItem: NSCollectionViewItem {
         label.alignment = .center
         label.font = .systemFont(ofSize: 12)
         label.maximumNumberOfLines = 2
-        label.lineBreakMode = .byTruncatingMiddle
+        label.lineBreakMode = .byWordWrapping   // wrap to two lines like Windows, then truncate
         label.cell?.truncatesLastVisibleLine = true
         root.addSubview(icon)
         root.addSubview(label)
@@ -105,7 +105,8 @@ final class IconItem: NSCollectionViewItem {
         label.stringValue = name
         view.toolTip = item.url.path
         view.alphaValue = (dimmed || item.isHidden) ? 0.5 : 1
-        icon.image = IconProvider.cachedThumbnail(for: item.url, size: iconPoints) ?? IconProvider.icon(for: item.url)
+        icon.image = (IconProvider.wantsThumbnail(item) ? IconProvider.cachedThumbnail(for: item.url, size: iconPoints) : nil)
+            ?? IconProvider.icon(for: item.url)
         IconProvider.thumbnail(for: item, size: iconPoints) { [weak self] image in
             guard let self, self.representedURL == item.url else { return }
             self.icon.image = image

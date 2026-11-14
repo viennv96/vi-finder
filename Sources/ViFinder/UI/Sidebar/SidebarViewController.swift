@@ -1,5 +1,4 @@
 import AppKit
-import SystemConfiguration
 
 /// A row in the navigation pane. Folder nodes lazily load their sub-folders (Windows-style tree).
 final class SidebarNode {
@@ -136,10 +135,8 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
     func reloadRoots() {
         let fm = FileManager.default
-        let home = fm.homeDirectoryForCurrentUser
-        func dir(_ d: FileManager.SearchPathDirectory) -> URL {
-            fm.urls(for: d, in: .userDomainMask).first ?? home
-        }
+        let home = Places.home
+        func dir(_ d: FileManager.SearchPathDirectory) -> URL { Places.user(d) }
         let quick: [SidebarNode] = [
             ("Home", home, "house"),
             ("Desktop", dir(.desktopDirectory), "menubar.dock.rectangle"),
@@ -150,8 +147,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
             ("Videos", dir(.moviesDirectory), "film"),
             ("Applications", URL(fileURLWithPath: "/Applications"), "square.grid.3x3"),
         ].map { SidebarNode(title: $0.0, url: $0.1.standardizedFileURL, symbol: $0.2, canExpand: false) }
-        let volumeURLs = fm.mountedVolumeURLs(includingResourceValuesForKeys: [.volumeLocalizedNameKey],
-                                              options: [.skipHiddenVolumes]) ?? [URL(fileURLWithPath: "/")]
+        let volumeURLs = Places.mountedVolumes()
         let drives = volumeURLs.map { url -> SidebarNode in
             let values = try? url.resourceValues(forKeys: [.volumeIsRemovableKey, .volumeIsLocalKey])
             let symbol: String
@@ -162,7 +158,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
             return SidebarNode(title: url.displayName, url: url.standardizedFileURL, symbol: symbol)
         }
         // "This PC" equivalent: the Mac itself, containing every drive.
-        let computer = SidebarNode(title: SidebarViewController.computerName,
+        let computer = SidebarNode(title: Places.computerName,
                                    url: URL(fileURLWithPath: "/Volumes"), symbol: "desktopcomputer")
         computer.fixedChildren = drives
 
@@ -171,7 +167,7 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
         locations.append(SidebarNode(title: "Network", symbol: "network") { [weak self] in self?.onConnectToServer?() })
 
         var groups = [SidebarNode(group: "Quick access", children: quick)]
-        let iCloud = home.appendingPathComponent("Library/Mobile Documents/com~apple~CloudDocs")
+        let iCloud = Places.iCloudDrive
         if fm.fileExists(atPath: iCloud.path) {
             groups.append(SidebarNode(group: "iCloud", children: [
                 SidebarNode(title: "iCloud Drive", url: iCloud.standardizedFileURL, symbol: "icloud", canExpand: false),
@@ -187,14 +183,10 @@ final class SidebarViewController: NSViewController, NSOutlineViewDataSource, NS
 
     private weak var computerNode: SidebarNode?
 
-    static var computerName: String {
-        (SCDynamicStoreCopyComputerName(nil, nil) as String?) ?? "This Mac"
-    }
-
     /// OneDrive, Google Drive, Dropbox, Box… (File Provider folders in ~/Library/CloudStorage).
     static func cloudStorageNodes() -> [SidebarNode] {
         let fm = FileManager.default
-        let base = fm.homeDirectoryForCurrentUser.appendingPathComponent("Library/CloudStorage")
+        let base = Places.cloudStorage
         guard let folders = try? fm.contentsOfDirectory(at: base, includingPropertiesForKeys: [.isDirectoryKey],
                                                         options: [.skipsHiddenFiles]) else { return [] }
         let providers: [(prefix: String, name: String, bundleID: String)] = [

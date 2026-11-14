@@ -126,9 +126,8 @@ enum MainMenu {
         m.addItem("Forward", #selector(E.goForward(_:)), target: nil, key: "]")
         m.addItem("Up", #selector(E.goUp(_:)), target: nil, key: FunctionKey.up)
         m.addSeparator()
-        let fm = FileManager.default
-        let home = fm.homeDirectoryForCurrentUser
-        func dir(_ d: FileManager.SearchPathDirectory) -> URL { fm.urls(for: d, in: .userDomainMask).first ?? home }
+        let home = Places.home
+        func dir(_ d: FileManager.SearchPathDirectory) -> URL { Places.user(d) }
         let places: [(String, URL, String, NSEvent.ModifierFlags)] = [
             ("Home", home, "h", [.command, .shift]),
             ("Desktop", dir(.desktopDirectory), "d", [.command, .shift]),

@@ -8,7 +8,7 @@ final class AddressBar: NSView, NSTextFieldDelegate {
     var onSubmit: ((String) -> Void)?
     var onNavigate: ((URL) -> Void)?
 
-    private(set) var url = URL(fileURLWithPath: NSHomeDirectory())
+    private(set) var url = Places.home
     private let iconView = NSImageView()
     private let crumbs = FlippedView()
     private let field = NSTextField()

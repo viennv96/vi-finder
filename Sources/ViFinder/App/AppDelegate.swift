@@ -23,7 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return controller.handle(event) ? nil : event
         }
         if pendingOpenURLs.isEmpty && pendingRevealURLs.isEmpty {
-            ExplorerWindowController.openWindow(at: FileManager.default.homeDirectoryForCurrentUser)
+            ExplorerWindowController.openWindow(at: Places.home)
         } else {
             open(pendingOpenURLs)
             reveal(pendingRevealURLs)
@@ -43,15 +43,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Folders open in a window; files open their parent folder with the file selected.
     private func open(_ urls: [URL]) {
+        var files: [URL] = []
         for url in urls {
             var isDir: ObjCBool = false
             FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir)
             if isDir.boolValue && !NSWorkspace.shared.isFilePackage(atPath: url.path) {
                 ExplorerWindowController.openWindow(at: url)
             } else {
-                reveal([url])
+                files.append(url)
             }
         }
+        // Files from the same folder share one window with all of them selected.
+        if !files.isEmpty { reveal(files) }
     }
 
     /// "Show in Finder": open each parent folder once and select the requested items.
@@ -123,7 +126,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func newWindow(_ sender: Any?) {
         let folder = (NSApp.keyWindow?.windowController as? ExplorerWindowController)?.explorer.model.folder
-            ?? FileManager.default.homeDirectoryForCurrentUser
+            ?? Places.home
         ExplorerWindowController.openWindow(at: folder)
     }
 

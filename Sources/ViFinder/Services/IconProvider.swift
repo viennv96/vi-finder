@@ -1,5 +1,6 @@
 import AppKit
 import QuickLookThumbnailing
+import UniformTypeIdentifiers
 
 /// Caches file icons and Quick Look thumbnails (for the icon views, like Windows thumbnails).
 enum IconProvider {
@@ -19,8 +20,16 @@ enum IconProvider {
     }
 
     /// Asynchronously produces a thumbnail; `completion` runs on main only if a thumbnail exists.
+    /// Like Windows: real previews only for pictures, videos and PDFs; everything else keeps its icon
+    /// (Quick Look thumbnails of short text files are nearly blank white pages).
+    static func wantsThumbnail(_ item: FileItem) -> Bool {
+        guard !item.isFolder, !item.isPackage,
+              let type = UTType(filenameExtension: item.pathExtension) else { return false }
+        return type.conforms(to: .image) || type.conforms(to: .audiovisualContent) || type.conforms(to: .pdf)
+    }
+
     static func thumbnail(for item: FileItem, size: CGFloat, completion: @escaping (NSImage) -> Void) {
-        guard !item.isFolder, !item.isPackage else { return }
+        guard wantsThumbnail(item) else { return }
         let key = "\(item.url.path)#\(Int(size))" as NSString
         if let cached = thumbCache.object(forKey: key) {
             completion(cached)
