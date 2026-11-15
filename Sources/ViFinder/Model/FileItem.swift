@@ -4,7 +4,8 @@ import Foundation
 final class FileItem {
     static let resourceKeys: [URLResourceKey] = [
         .isDirectoryKey, .isPackageKey, .isHiddenKey, .isSymbolicLinkKey, .isAliasFileKey,
-        .fileSizeKey, .contentModificationDateKey, .creationDateKey, .localizedTypeDescriptionKey,
+        .fileSizeKey, .contentModificationDateKey, .creationDateKey, .addedToDirectoryDateKey,
+        .localizedTypeDescriptionKey,
         .tagNamesKey,
     ]
 
@@ -18,6 +19,8 @@ final class FileItem {
     let size: Int64?
     let modified: Date?
     let created: Date?
+    /// When the item was put in its current folder (Finder's "Date Added").
+    let added: Date?
     let kind: String
     /// Finder tags ("Red", "Work"…).
     let tags: [String]
@@ -42,6 +45,7 @@ final class FileItem {
         self.size = directory ? nil : Int64(values?.fileSize ?? 0)
         self.modified = values?.contentModificationDate
         self.created = values?.creationDate
+        self.added = values?.addedToDirectoryDate
         self.tags = values?.tagNames ?? []
         if self.isFolder {
             self.kind = symlink ? "Folder shortcut" : "File folder"
@@ -69,6 +73,10 @@ extension FileItem {
                 result = a.name.localizedStandardCompare(b.name)
             case .dateModified:
                 result = compare(a.modified ?? .distantPast, b.modified ?? .distantPast)
+            case .dateCreated:
+                result = compare(a.created ?? .distantPast, b.created ?? .distantPast)
+            case .dateAdded:
+                result = compare(a.added ?? .distantPast, b.added ?? .distantPast)
             case .type:
                 let r = a.kind.localizedCaseInsensitiveCompare(b.kind)
                 result = r == .orderedSame ? a.name.localizedStandardCompare(b.name) : r

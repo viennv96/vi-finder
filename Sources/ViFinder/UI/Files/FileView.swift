@@ -35,6 +35,12 @@ protocol FileView: AnyObject {
     func setSortIndicator(_ key: SortKey, ascending: Bool)
     /// Non-nil while showing search results (Details view adds a "Folder" column).
     func setSearchRoot(_ root: URL?)
+    /// Details view: make the column of a sort key visible (sorting by a hidden column would be invisible).
+    func showColumn(for key: SortKey)
+}
+
+extension FileView {
+    func showColumn(for key: SortKey) {}
 }
 
 enum DragSupport {

@@ -42,16 +42,21 @@ enum ViewMode: String, CaseIterable {
 }
 
 enum SortKey: String, CaseIterable {
-    case name, dateModified, type, size
+    case name, dateModified, dateCreated, dateAdded, type, size
 
     var title: String {
         switch self {
         case .name: return "Name"
         case .dateModified: return "Date modified"
+        case .dateCreated: return "Date created"
+        case .dateAdded: return "Date added"
         case .type: return "Type"
         case .size: return "Size"
         }
     }
+
+    /// Direction used when switching to this key: text A→Z, dates and sizes newest/largest first.
+    var defaultAscending: Bool { self == .name || self == .type }
 }
 
 /// Global, persisted preferences (shared by all windows/tabs).

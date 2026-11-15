@@ -267,6 +267,13 @@ extension ExplorerViewController: NSMenuItemValidation {
             return model.canGoForward
         case #selector(goUp(_:)):
             return model.canGoUp
+        case #selector(sortFromMenu(_:)):
+            if let raw = menuItem.representedObject as? String {
+                menuItem.state = raw == model.sortKey.rawValue ? .on : .off
+            } else {
+                menuItem.state = (menuItem.tag == 1) == model.ascending ? .on : .off
+            }
+            return true
         case #selector(setViewModeFromMenu(_:)):
             menuItem.state = (menuItem.representedObject as? String) == viewMode.rawValue ? .on : .off
             return true

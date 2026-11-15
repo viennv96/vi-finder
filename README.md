@@ -88,7 +88,8 @@ macOS không cho thay hẳn Finder: Desktop, Dock, Thùng rác và các thư m�
 | Ô Search | Tìm trong thư mục hiện tại **và mọi thư mục con** (chạy nền, kết quả hiện dần), không phân biệt hoa thường và dấu tiếng Việt ("tai lieu" ra "Tài liệu"). Kết quả có thêm cột **Folder** |
 | Command bar | New ▾, Cut, Copy, Paste, Rename, Share, Delete, Sort ▾, View ▾, Terminal, ⋯ |
 | Navigation pane | Quick access, iCloud Drive, tên máy Mac (giống *This PC*) chứa các ổ đĩa dạng cây, OneDrive / Google Drive / Dropbox (`~/Library/CloudStorage`), Network (Connect to Server – SMB/AFP/NFS) |
-| View | Large icons, Medium icons (có thumbnail), List, Details (Name / Date modified / Type / Size, bấm header để sort, kéo đổi cột), Tiles, Content |
+| View | Large icons, Medium icons (có thumbnail), List, Details (Name / Date modified / Type / Size, bấm header để sort, kéo đổi cột, chuột phải header để bật/tắt cột **Date created**, **Date added**), Tiles, Content |
+| Sort | Name, Date modified, Date created, Date added (ngày đưa file vào thư mục, giống Finder), Type, Size; Ascending / Descending. Folder luôn nằm trên như Windows |
 | Preview pane | Xem trước file đang chọn ở cột bên phải (ảnh, PDF, video, code, Office… qua Quick Look) |
 | Undo / Redo | Hoàn tác đổi tên, di chuyển, copy, tạo mới, nén/giải nén, xóa vào Thùng rác (lấy lại từ Thùng rác). Xóa vĩnh viễn thì không undo được |
 | Tags | Dùng chung tag với Finder: chấm màu cạnh tên file, chuột phải → Tags ▸ để gắn/bỏ, mục **Tags** ở Navigation pane liệt kê mọi file có tag đó (qua Spotlight) |

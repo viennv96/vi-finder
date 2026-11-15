@@ -435,7 +435,7 @@ extension ExplorerViewController {
 
     @objc func sortFromMenu(_ sender: NSMenuItem) {
         if let raw = sender.representedObject as? String, let key = SortKey(rawValue: raw) {
-            applySort(key, ascending: model.sortKey == key ? model.ascending : (key == .name || key == .type))
+            applySort(key, ascending: model.sortKey == key ? model.ascending : key.defaultAscending)
         } else {
             applySort(model.sortKey, ascending: sender.tag == 1)
         }
@@ -444,6 +444,7 @@ extension ExplorerViewController {
     func applySort(_ key: SortKey, ascending: Bool) {
         model.setSort(key, ascending: ascending)
         current.setSortIndicator(key, ascending: ascending)
+        current.showColumn(for: key)
     }
 
     @objc func toggleHiddenItems(_ sender: Any?) { Prefs.showHidden.toggle() }

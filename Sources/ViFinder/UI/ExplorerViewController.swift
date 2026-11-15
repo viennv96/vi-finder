@@ -171,6 +171,8 @@ final class ExplorerViewController: NSViewController {
         model.onFolderChanged = { [weak self] in self?.folderChanged() }
         model.onItemsChanged = { [weak self] change in self?.itemsChanged(change) }
         current.setSortIndicator(model.sortKey, ascending: model.ascending)
+        detailsVC.loadViewIfNeeded()
+        detailsVC.showColumn(for: model.sortKey)
 
         let nc = NotificationCenter.default
         nc.addObserver(self, selector: #selector(preferencesChanged), name: .viPreferencesChanged, object: nil)
